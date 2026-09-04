@@ -50,7 +50,7 @@ export default function Chat() {
     try {
       const reply = await askHearth({
         messages: next,
-        apiKey: serverKey ? undefined : apiKey,
+        apiKey,
       });
       const bot = {
         id: crypto.randomUUID(),
@@ -149,7 +149,9 @@ export default function Chat() {
           <span>
             {apiKey || serverKey
               ? "Desk is on. If Gemini blocks the project, Hearth answers from the directory instead."
-              : "No API key yet — add GEMINI_API_KEY to .env, or paste one under You."}
+              : import.meta.env.DEV
+                ? "No API key yet — add GEMINI_API_KEY to .env, or paste one under You."
+                : "No API key yet — add VITE_GEMINI_API_KEY to the Pages build, or paste one under You."}
           </span>
           {messages.length > 0 && (
             <button type="button" className="text-btn" onClick={clearChat}>

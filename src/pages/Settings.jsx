@@ -60,8 +60,8 @@ export default function Settings() {
             <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
               Google AI Studio
             </a>
-            . Use a new AI Studio key — unrestricted Cloud keys get a 403. Leave blank to use the
-            server <code>.env</code> key.
+            . Use a Google AI Studio key. On GitHub Pages the build uses{" "}
+            <code>VITE_GEMINI_API_KEY</code>. You can also paste a key here for this browser.
           </p>
         </header>
         <label className="span-2">
