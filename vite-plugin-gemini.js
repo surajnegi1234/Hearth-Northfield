@@ -2,13 +2,7 @@ import { loadEnv } from "vite";
 import { employees } from "./src/data/employees.js";
 import { SYSTEM_HINT } from "./src/data/prompts.js";
 
-const MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-  "gemini-flash-latest",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
-];
+const MODELS = ["gemini-3.6-flash", "gemini-flash-latest"];
 
 function directoryBlock() {
   return employees
@@ -73,7 +67,12 @@ async function callGemini(model, key, body) {
     }
   );
   const headerPayload = await headerRes.json().catch(() => ({}));
-  if (headerRes.ok || headerRes.status === 404) {
+  if (
+    headerRes.ok ||
+    headerRes.status === 404 ||
+    headerRes.status === 429 ||
+    headerRes.status === 403
+  ) {
     return { response: headerRes, payload: headerPayload };
   }
 
@@ -143,6 +142,13 @@ function attach(server, getKey) {
         lastMessage = payload?.error?.message || "";
 
         if (response.status === 404) continue;
+        if (response.status === 429) {
+          sendJson(res, 429, {
+            error:
+              "Free Gemini quota for this minute is used up. Wait about a minute and send again — the new key is fine.",
+          });
+          return;
+        }
         if (!response.ok) {
           sendJson(res, response.status, {
             error: explainDenied(lastMessage) || `Gemini returned ${response.status}.`,

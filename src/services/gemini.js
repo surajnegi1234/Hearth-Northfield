@@ -2,13 +2,7 @@ import { employees } from "../data/employees.js";
 import { SYSTEM_HINT } from "../data/prompts.js";
 import { localDeskReply } from "./localDesk.js";
 
-const MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-  "gemini-flash-latest",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
-];
+const MODELS = ["gemini-3.6-flash", "gemini-flash-latest"];
 
 function directoryBlock() {
   return employees
@@ -25,12 +19,30 @@ function extractText(payload) {
   return parts.map((part) => part.text || "").join("").trim();
 }
 
-function explainDenied(message) {
-  const text = (message || "").toLowerCase();
-  if (text.includes("denied access") || text.includes("permission_denied")) {
-    return "Google blocked this Gemini project. Try another AI Studio key under You, or set VITE_GEMINI_API_KEY for the Pages build.";
+function googleErrorMessage(payload, status) {
+  const err = payload?.error;
+  if (!err) return `Gemini returned ${status || "an error"}.`;
+  const reason = err.details?.find((d) => d.reason)?.reason || err.status;
+  const message = err.message || "";
+  if (/quota|rate.limit|resource_exhausted/i.test(message) || status === 429) {
+    return "Free Gemini quota for this minute is used up. Wait about a minute and send again — the new key is fine.";
   }
-  return message;
+  if (reason === "API_KEY_HTTP_REFERRER_BLOCKED" || /referer/i.test(message)) {
+    return "Google blocked this request because of HTTP referrer rules on the API key. In Google Cloud, edit the key and add https://surajnegi1234.github.io/* under website restrictions.";
+  }
+  if (reason === "API_KEY_INVALID" || /api key not valid/i.test(message)) {
+    return "Google says this API key is not valid. Check the GitHub secret VITE_GEMINI_API_KEY matches a current AI Studio key.";
+  }
+  if (/denied access/i.test(message) || reason === "PERMISSION_DENIED") {
+    return message || "Google denied this Gemini project.";
+  }
+  return reason ? `${message} (${reason})` : message;
+}
+
+function fallbackWithReason(messages, reason) {
+  const lastUser = [...(messages || [])].reverse().find((m) => m.role === "user");
+  const local = localDeskReply(lastUser?.content || "");
+  return `${local}\n\n—\n${reason}`;
 }
 
 function buildBody(messages) {
@@ -66,9 +78,15 @@ async function callGemini(model, key, body) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: payloadJson,
+    referrerPolicy: "origin",
   });
   const queryPayload = await queryRes.json().catch(() => ({}));
-  if (queryRes.ok || queryRes.status === 404) {
+  if (
+    queryRes.ok ||
+    queryRes.status === 404 ||
+    queryRes.status === 429 ||
+    queryRes.status === 403
+  ) {
     return { response: queryRes, payload: queryPayload };
   }
 
@@ -81,6 +99,7 @@ async function callGemini(model, key, body) {
         "x-goog-api-key": key,
       },
       body: payloadJson,
+      referrerPolicy: "origin",
     }
   );
   const headerPayload = await headerRes.json().catch(() => ({}));
@@ -119,14 +138,12 @@ async function askGeminiDirect({ messages, apiKey }) {
 
     if (!response.ok) {
       if (response.status === 403) {
-        const lastUser = [...(messages || [])].reverse().find((m) => m.role === "user");
-        const local = localDeskReply(lastUser?.content || "");
-        return `${local}\n\n—\nGemini itself refused the key (project denied). Local directory still works.`;
+        return fallbackWithReason(messages, googleErrorMessage(payload, 403));
       }
       const err = new Error(
-        explainDenied(lastMessage) || `Gemini returned ${response.status}.`
+        googleErrorMessage(payload, response.status) || `Gemini returned ${response.status}.`
       );
-      err.code = "API";
+      err.code = response.status === 429 ? "QUOTA" : "API";
       err.status = response.status;
       throw err;
     }
@@ -146,7 +163,8 @@ async function askGeminiDirect({ messages, apiKey }) {
   }
 
   const err = new Error(
-    explainDenied(lastMessage) || "No Gemini model accepted the request."
+    googleErrorMessage({ error: { message: lastMessage } }, lastStatus) ||
+      "No Gemini model accepted the request."
   );
   err.code = "API";
   err.status = lastStatus;
@@ -176,10 +194,20 @@ async function askViaProxy({ messages, apiKey }) {
 
   if (response.ok && data.text) return data.text;
 
+  if (response.status === 429) {
+    const err = new Error(
+      "Free Gemini quota for this minute is used up. Wait about a minute and send again — the new key is fine."
+    );
+    err.code = "QUOTA";
+    err.status = 429;
+    throw err;
+  }
+
   if (response.status === 403 || data.denied) {
-    const lastUser = [...payload.messages].reverse().find((m) => m.role === "user");
-    const local = localDeskReply(lastUser?.content || "");
-    return `${local}\n\n—\nGemini itself refused the key (project denied). Local directory still works. New key: aistudio.google.com/apikey`;
+    return fallbackWithReason(
+      payload.messages,
+      data.error || "Gemini returned 403."
+    );
   }
 
   const err = new Error(

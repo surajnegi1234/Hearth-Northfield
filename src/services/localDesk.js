@@ -49,5 +49,5 @@ export function localDeskReply(userText) {
       .join("\n");
   }
 
-  return `I can look people up, draft a note, or talk through leave / rooms / payroll. Ask for someone by name, or a department. (Google’s Gemini key isn’t accepting requests from this project, so this is the local desk answering from the Northfield directory.)`;
+  return `I can look people up, draft a note, or talk through leave / rooms / payroll. Ask for someone by name, or a department.`;
 }
