@@ -19,12 +19,22 @@ export default function Chat() {
     chatStatus().then((s) => setServerKey(Boolean(s.configured)));
   }, []);
 
+  const draftBeforeVoice = useRef("");
+
   const onVoice = useCallback((text) => {
-    setDraft((prev) => (prev ? `${prev} ${text}` : text));
+    const base = draftBeforeVoice.current;
+    setDraft(base ? `${base} ${text}` : text);
     inputRef.current?.focus();
   }, []);
 
-  const { listening, supported, toggle } = useSpeech({ onResult: onVoice });
+  const { listening, supported, toggle, error: voiceError } = useSpeech({
+    onResult: onVoice,
+  });
+
+  function onMicClick() {
+    if (!listening) draftBeforeVoice.current = draft.trim();
+    toggle();
+  }
 
   useEffect(() => {
     const el = scroller.current;
@@ -130,9 +140,9 @@ export default function Chat() {
             <button
               type="button"
               className={listening ? "icon-btn on" : "icon-btn"}
-              onClick={toggle}
+              onClick={onMicClick}
               aria-label={listening ? "Stop listening" : "Voice input"}
-              title={listening ? "Listening…" : "Speak"}
+              title={listening ? "Listening… click to stop" : "Speak"}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <rect x="6" y="1.5" width="4" height="8" rx="2" stroke="currentColor" strokeWidth="1.5" />
@@ -147,11 +157,15 @@ export default function Chat() {
         </div>
         <div className="composer-meta">
           <span>
-            {apiKey || serverKey
-              ? "Desk is on. If Gemini blocks the project, Hearth answers from the directory instead."
-              : import.meta.env.DEV
-                ? "No API key yet — add GEMINI_API_KEY to .env, or paste one under You."
-                : "No API key yet — add VITE_GEMINI_API_KEY to the Pages build, or paste one under You."}
+            {voiceError
+              ? voiceError
+              : listening
+                ? "Listening. Words should appear here — click the mic to stop."
+                : apiKey || serverKey
+                  ? "Desk is on. If Gemini blocks the project, Hearth answers from the directory instead."
+                  : import.meta.env.DEV
+                    ? "No API key yet — add GEMINI_API_KEY to .env, or paste one under You."
+                    : "No API key yet — add VITE_GEMINI_API_KEY to the Pages build, or paste one under You."}
           </span>
           {messages.length > 0 && (
             <button type="button" className="text-btn" onClick={clearChat}>
