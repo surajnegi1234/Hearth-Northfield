@@ -2,12 +2,9 @@ import { useState } from "react";
 import { useApp } from "../context/AppContext.jsx";
 
 export default function Settings() {
-  const { profile, setProfile, prefs, setPrefs, theme, setTheme, apiKey, setApiKey } =
-    useApp();
+  const { profile, setProfile, prefs, setPrefs, theme, setTheme } = useApp();
   const [form, setForm] = useState(profile);
   const [saved, setSaved] = useState(false);
-  const [keyDraft, setKeyDraft] = useState(apiKey);
-  const [showKey, setShowKey] = useState(false);
 
   function onChange(e) {
     const { name, value } = e.target;
@@ -18,7 +15,6 @@ export default function Settings() {
   function onSave(e) {
     e.preventDefault();
     setProfile(form);
-    setApiKey(keyDraft.trim());
     setSaved(true);
   }
 
@@ -52,36 +48,6 @@ export default function Settings() {
             <input name="desk" value={form.desk} onChange={onChange} />
           </label>
         </div>
-
-        <header className="panel-head tight">
-          <h2>Gemini key</h2>
-          <p>
-            From{" "}
-            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
-              Google AI Studio
-            </a>
-            . Use a Google AI Studio key. On GitHub Pages the build uses{" "}
-            <code>VITE_GEMINI_API_KEY</code>. You can also paste a key here for this browser.
-          </p>
-        </header>
-        <label className="span-2">
-          API key
-          <div className="key-row">
-            <input
-              type={showKey ? "text" : "password"}
-              value={keyDraft}
-              onChange={(e) => {
-                setKeyDraft(e.target.value);
-                setSaved(false);
-              }}
-              placeholder="AIza…"
-              autoComplete="off"
-            />
-            <button type="button" className="ghost-btn" onClick={() => setShowKey((s) => !s)}>
-              {showKey ? "Hide" : "Show"}
-            </button>
-          </div>
-        </label>
 
         <div className="form-actions">
           <button type="submit" className="btn solid">

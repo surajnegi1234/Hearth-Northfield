@@ -65,10 +65,8 @@ function buildBody(messages) {
   };
 }
 
-function resolveKey(apiKey) {
-  const envKey = (import.meta.env.VITE_GEMINI_API_KEY || "").trim();
-  const pasted = (apiKey || "").trim();
-  return envKey || pasted;
+function resolveKey() {
+  return (import.meta.env.VITE_GEMINI_API_KEY || "").trim();
 }
 
 async function callGemini(model, key, body) {
@@ -106,11 +104,11 @@ async function callGemini(model, key, body) {
   return { response: headerRes, payload: headerPayload };
 }
 
-async function askGeminiDirect({ messages, apiKey }) {
-  const key = resolveKey(apiKey);
+async function askGeminiDirect({ messages }) {
+  const key = resolveKey();
   if (!key) {
     const err = new Error(
-      "No Gemini key yet. Add VITE_GEMINI_API_KEY as a GitHub Actions secret, or paste one under You."
+      "No Gemini key yet. Add VITE_GEMINI_API_KEY as a GitHub Actions secret."
     );
     err.code = "NO_KEY";
     throw err;
